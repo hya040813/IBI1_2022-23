@@ -1,0 +1,41 @@
+import xml.dom.minidom as minidom
+import openpyxl
+
+dom = minidom.parse("go_obo.xml")
+root = dom.documentElement
+
+terms = []
+for term_node in root.getElementsByTagName("term"):
+    defstr_nodes = term_node.getElementsByTagName("defstr")
+    if len(defstr_nodes) > 0 and "autophagosome" in defstr_nodes[0].childNodes[0].nodeValue:
+        term_id = term_node.getElementsByTagName("id")[0].childNodes[0].nodeValue
+        term_name = term_node.getElementsByTagName("name")[0].childNodes[0].nodeValue
+        term_def = defstr_nodes[0].childNodes[0].nodeValue
+        terms.append({"id": term_id, "name": term_name, "defstr": term_def})
+
+for term in terms:
+    child_count = 0
+    current_id = term["id"]
+    while True:
+        parent_node = None
+        for link_node in root.getElementsByTagName("is_a"):
+            if link_node.childNodes[0].nodeValue.endswith(current_id):
+                parent_node = link_node.parentNode
+                break
+        if parent_node is not None:
+            child_count += 1
+            current_id = parent_node.getElementsByTagName("id")[0].childNodes[0].nodeValue
+        else:
+            break
+    term["child_nodes"] = child_count
+wb = openpyxl.Workbook()
+ws = wb.active
+ws.title = "Autophagosome GO Terms"
+
+headers = ["GO ID", "Term Name", "Definition String", "Child Nodes"]
+ws.append(headers)
+for term in terms:
+    row = [term["id"], term["name"], term["defstr"], term.get("child_nodes", 0)]
+    ws.append(row)
+wb.save("autophagosome.xlsx")
+print("Done. The results are saved to 'autophagosome.xlsx'")
